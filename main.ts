@@ -1,4 +1,5 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import {App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile} from 'obsidian';
+import {DailyContent, DailyContents} from "./DailyContents";
 
 // Remember to rename these classes and interfaces!
 
@@ -15,11 +16,30 @@ export default class MyPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-
+		// this.app.workspace.on("file-menu", (menu, file) => {
+		// 	if (file instanceof TFolder) {
+		// 	  menu.addItem((item) => {
+		// 		item
+		// 		  .setTitle(("menus.project.create.title"))
+		// 		  .setIcon("folder-plus")
+		// 		  .onClick(async () => {
+		// 			new Notice("hello")
+		// 		  });
+		// 	  });
+		// 	}
+		//   })
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+			this.readDailyFile()
+
+			// this.app.workspace.iterateAllLeaves((leaf) => {
+			// 	new Notice(leaf.getViewState().type);
+			//   });
+			// const editor = this.app.workspace.activeEditor?.editor
+			// if (editor !== undefined) {
+			// 	return new Notice(editor.getDoc().getValue())
+			// }
+
 		});
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
@@ -88,6 +108,58 @@ export default class MyPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	async readDailyFile() {
+		const file = this.app.vault
+			.getFolderByPath("daily")?.children
+			.find((file) => file instanceof TFile)
+
+		if (file instanceof TFile) {
+			const contents = await this.app.vault.read(file)
+			const sectionRegex = /##\s*(.+)\n([\s\S]*?)(?=##|$)/g;
+
+
+			const dailyContents: DailyContents = new DailyContents()
+
+			let match;
+			while ((match = sectionRegex.exec(contents)) !== null) {
+				const sectionTitle = match[1].trim();
+				const sectionContent = match[2].trim();
+
+				// console.log(`Section: ${sectionTitle}`);
+				// console.log(`## ${sectionTitle}\n${sectionContent}`);
+				// console.log('------------------');
+
+				const dailyContent = new DailyContent(sectionTitle, sectionContent)
+				dailyContents.push(dailyContent);
+			}
+			await this.createNote(dailyContents)
+		}
+
+	}
+
+	async createNote(dailyContents: DailyContents) {
+		const title = await this.getFormattedDate();
+		console.log(title)
+
+		// Obsidian 파일 시스템을 통해 새 파일 생성
+		// const file = await this.app.vault.create(`daily/${title}.md`, contents);
+		const file = await this.app.vault.create(`daily/${Math.floor(Math.random() * 1000) + 1}.md`, dailyContents.new());
+		new Notice("새 노트가 생성되었습니다!");
+
+		// 생성한 노트 열기
+		const leaf = this.app.workspace.getLeaf(true);
+		await leaf.openFile(file);
+	}
+
+	async getFormattedDate() {
+		const today = new Date();
+		const year = today.getFullYear();
+		const month = String(today.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작하므로 +1 필요
+		const day = String(today.getDate()).padStart(2, '0');
+
+		return `${year}-${month}-${day}`;
 	}
 }
 
