@@ -113,12 +113,14 @@ export default class MyPlugin extends Plugin {
 	async readDailyFile() {
 		const file = this.app.vault
 			.getFolderByPath("daily")?.children
-			.find((file) => file instanceof TFile)
+			.sort((a, b) => a.name.localeCompare(b.name))
+			.last()
 
 		if (file instanceof TFile) {
+			console.log(`basename: ${file.basename}`)
+
 			const contents = await this.app.vault.read(file)
 			const sectionRegex = /##\s*(.+)\n([\s\S]*?)(?=##|$)/g;
-
 
 			const dailyContents: DailyContents = new DailyContents()
 
@@ -141,11 +143,13 @@ export default class MyPlugin extends Plugin {
 
 	async createNote(dailyContents: DailyContents) {
 		const title = await this.getFormattedDate();
-		console.log(title)
+		console.log(`new - ${title}`)
 
+		console.log(`createNote previous: \n${dailyContents.now()}`)
+		const contents = dailyContents.new()
+		console.log(`createNote new: \n${contents}`)
 		// Obsidian 파일 시스템을 통해 새 파일 생성
-		// const file = await this.app.vault.create(`daily/${title}.md`, contents);
-		const file = await this.app.vault.create(`daily/${Math.floor(Math.random() * 1000) + 1}.md`, dailyContents.new());
+		const file = await this.app.vault.create(`daily/${title}.md`, dailyContents.new());
 		new Notice("새 노트가 생성되었습니다!");
 
 		// 생성한 노트 열기

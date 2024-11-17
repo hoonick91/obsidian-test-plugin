@@ -1,159 +1,283 @@
 export class DailyContents {
-	contents: DailyContent[] = []
+	outstanding: DailyContent
+	backlog: DailyContent
+	todo: DailyContent
+	doing: DailyContent
+	done: DailyContent
+	question: DailyContent
 
 	push(dailyContent: DailyContent) {
-		this.contents.push(dailyContent)
+		switch (dailyContent.title) {
+			case "Outstanding":
+				this.outstanding = dailyContent
+				break
+			case "Backlog":
+				this.backlog = dailyContent
+				break
+			case "Todo":
+				this.todo = dailyContent
+				break
+			case "Doing":
+				this.doing = dailyContent
+				break
+			case "Done":
+				this.done = dailyContent
+				break
+			case "Question":
+				this.question = dailyContent
+				break
+			default:
+				break
+		}
+	}
+
+	now(): string {
+		return this.outstanding.create() + this.question.create() + this.backlog.create() + this.todo.create() + this.doing.create() + this.done.create()
 	}
 
 	new(): string {
-		// Doing -> Done
 		this.moveDoingToDone()
 		this.moveDoingToTodo()
-		// Doing -> Todo
+		this.clearDoing()
 
-		const doing = this.contents
-			.filter(dailyContent => dailyContent.title == 'Doing')
-			.first()
+		this.moveTodoToBacklog()
 
-		if (doing !== undefined) {
-			doing.contents = ""
-		}
-
-		// const done = this.createDone()
-		// console.log(todo.create())
-		// console.log(done)
-
-		let result = ''
-		this.contents.forEach((dailyContent) => {
-			result += dailyContent.create()
-		})
-		return result
+		return this.outstanding.create() + this.question.create() + this.backlog.create() + this.todo.create() + this.doing.create() + this.done.create()
 	}
 
 	private moveDoingToDone() {
-		const doing = this.contents
-			.filter(dailyContent => dailyContent.title == 'Doing')
-			.first()
+		console.log(`dailyContents before => doing: ${this.doing.create()}`)
+		console.log(`dailyContents before => done: ${this.done.create()}`)
 
-		const done = this.contents
-			.filter(dailyContent => dailyContent.title == 'Done')
-			.first()
+		const doneFromDoing = this.doing.tasks.getCheckedTasks()
+		this.done.add(doneFromDoing)
 
-		if (doing !== undefined && done !== undefined) {
-			console.log("doing to done")
-			console.log(this.getDoneWithParentsIn(doing))
-			done.contents += this.getDoneWithParentsIn(doing)
-		}
+		this.doing.tasks = this.doing.tasks.getUnCheckedTasks()
+
+		console.log(`dailyContents after => doing: ${this.doing.create()}`)
+		console.log(`dailyContents after => done: ${this.done.create()}`)
 	}
-
-	getDoneWithParentsIn = (dailyContent: DailyContent | undefined): string => {
-		if (dailyContent == undefined) {
-			throw new Error('Daily content not found')
-		}
-
-		const lines = dailyContent.contents.split('\n')
-			.map(line => line.trimEnd())
-
-		const result: string[] = [];
-		const parentsStack: string[] = [];
-		const parentsChecker: Set<string> = new Set()
-
-		lines.forEach(line => {
-			const isChecked = line.includes('- [x]');
-			const indentLevel = line.search(/\S|$/);
-
-			// 현재 줄이 상위 계위에 해당하는지 확인
-			while (parentsStack.length > 0 && parentsStack[parentsStack.length - 1].search(/\S|$/) >= indentLevel) {
-				parentsStack.pop();
-			}
-
-			// 체크된 항목을 발견했을 때
-			if (isChecked) {
-				// 체크된 항목과 상위 항목을 추가
-				const parentId = parentsStack.join()
-				if (!parentsChecker.has(parentId)) {
-					result.push(...parentsStack);
-					parentsChecker.add(parentId)
-				}
-				result.push(line);
-			}
-
-			// 현재 항목을 상위 계위로 스택에 추가
-			parentsStack.push(line);
-		});
-
-		return result.join('\n')
-	};
 
 	private moveDoingToTodo() {
-		const doing = this.contents
-			.filter(dailyContent => dailyContent.title == 'Doing')
-			.first()
+		console.log(`dailyContents before => doing: ${this.doing.create()}`)
+		console.log(`dailyContents before => todo: ${this.todo.create()}`)
 
-		const todo = this.contents
-			.filter(dailyContent => dailyContent.title == 'Todo')
-			.first()
+		const todoFromDoing = this.doing.tasks
+			.getUnCheckedTasks()
+			.addEmoji('⭐')
+		this.todo.add(todoFromDoing)
 
-		if (doing !== undefined && todo !== undefined) {
-			console.log("doing to todo")
-			console.log(this.getTodoWithParentsIn(doing))
-			doing.contents += this.getTodoWithParentsIn(doing)
-		}
+		this.doing.tasks = this.doing.tasks.getCheckedTasks()
 
+		console.log(`dailyContents after => doing: ${this.doing.create()}`)
+		console.log(`dailyContents after => todo: ${this.todo.create()}`)
 	}
 
-	getTodoWithParentsIn = (dailyContent: DailyContent | undefined): string => {
-		if (dailyContent == undefined) {
-			throw new Error('Daily content not found')
-		}
+	private clearDoing() {
+		this.doing.tasks = new Tasks(this.doing.title, [new Task('- [ ] ', false)])
+	}
 
-		const lines = dailyContent.contents.split('\n')
-			.map(line => line.trimEnd())
+	private moveTodoToBacklog() {
+		console.log(`dailyContents before => todo: ${this.todo.create()}`)
+		console.log(`dailyContents before => backlog: ${this.backlog.create()}`)
 
-		const result: string[] = [];
-		const parentsStack: string[] = [];
-		const parentsChecker: Set<string> = new Set()
+		const backlogFromTodo = this.todo.tasks.getCheckedTasks().splitFirst('✅')
+		this.backlog.add(backlogFromTodo)
+		this.todo.tasks = this.todo.tasks.getUnCheckedTasks()
 
-		lines.forEach(line => {
-			const isChecked = line.includes('- [ ]');
-			const indentLevel = line.search(/\S|$/);
-
-			// 현재 줄이 상위 계위에 해당하는지 확인
-			while (parentsStack.length > 0 && parentsStack[parentsStack.length - 1].search(/\S|$/) >= indentLevel) {
-				parentsStack.pop();
-			}
-
-			// 체크된 항목을 발견했을 때
-			if (isChecked) {
-				// 체크된 항목과 상위 항목을 추가
-				const parentId = parentsStack.join()
-				if (!parentsChecker.has(parentId)) {
-					result.push(...parentsStack);
-					parentsChecker.add(parentId)
-				}
-				result.push(line);
-			}
-
-			// 현재 항목을 상위 계위로 스택에 추가
-			parentsStack.push(line);
-		});
-
-		return result.join('\n')
-	};
-
-
+		console.log(`dailyContents after => todo: ${this.todo.create()}`)
+		console.log(`dailyContents after => backlog: ${this.backlog.create()}`)
+	}
 }
 
 export class DailyContent {
 	title: string
-	public contents: string
+	tasks: Tasks
 
 	constructor(title: string, contents: string) {
 		this.title = title
-		this.contents = contents;
+		console.log(`DailyContent \ntitle:${title}, \ncontents: \n${contents}`)
+		this.tasks = new Tasks(contents)
 	}
 
 	create(): string {
-		return `## ${this.title}\n${this.contents}\n`
+		console.log(`DailyContent create:\n ## ${this.title}\n${this.tasks.contents.map(content => content.convertToString()).join('\n')}\n`)
+		return `## ${this.title}\n${this.tasks.contents.map(content => content.convertToString()).join('\n')}\n`
+	}
+
+	add(tasks: Tasks) {
+		this.tasks.add(tasks)
 	}
 }
+
+export class Tasks {
+	contents: Task[]
+
+	constructor(contents?: string, tasks?: Task[]) {
+		if (tasks !== undefined) {
+			this.contents = tasks
+			return
+		}
+
+		if (contents !== undefined) {
+			const newTasks: Task[] = []
+			const splitContents = contents.split('\n')
+
+			this.contents = createTasks(splitContents, newTasks)
+		}
+
+		function createTasks(contents: string[], tasks: Task[]): Task[] {
+			for (let i = 0; i < contents.length; i++) {
+				if (i + 1 >= contents.length) { //isLastIndex
+					const task = new Task(contents[i], contents[i].contains('- [x]'))
+					tasks.push(task)
+					return tasks
+				}
+
+				const currentDepth = getDepth(contents[i])
+				const nextDepth = getDepth(contents[i + 1])
+
+				if (currentDepth < nextDepth) { //hasChildren
+					const children = createTasks([...contents].splice(i + 1, contents.length), [])
+					const task = new Task(contents[i], contents[i].contains('- [x]'), children)
+					tasks.push(task)
+					i += children.length //pass children index
+					continue
+				}
+
+				if (currentDepth > nextDepth) {
+					const task = new Task(contents[i], contents[i].contains('- [x]'))
+					tasks.push(task)
+					return tasks
+				}
+
+				if (currentDepth === nextDepth) {
+					const task = new Task(contents[i], contents[i].contains('- [x]'))
+					tasks.push(task)
+				}
+
+			}
+
+			return tasks
+		}
+
+		function getDepth(content: string) {
+			const depth = content.match(/\t/g)
+			return depth ? depth.length : 0
+		}
+	}
+
+	getCheckedTasks(): Tasks {
+		const result: Task[] = []
+		for (const content of this.contents) {
+			if (content.hasChildren()) {
+				const checkedChildren = content.children.filter(child => child.checked)
+				if (checkedChildren.length > 0) {
+					const task = new Task(
+						content.content,
+						content.checked,
+						checkedChildren
+					)
+					result.push(task)
+					continue
+				}
+			}
+
+			if (content.checked) {
+				result.push(content)
+			}
+		}
+
+		return new Tasks(
+			undefined,
+			result
+		)
+	}
+
+	getUnCheckedTasks() {
+		const result: Task[] = []
+		for (const content of this.contents) {
+			if (content.hasChildren()) {
+				const checkedChildren = content.children.filter(child => !child.checked)
+				const task = new Task(
+					content.content,
+					content.checked,
+					checkedChildren
+				)
+				result.push(task)
+				continue
+			}
+
+			if (!content.checked) {
+				result.push(content)
+			}
+		}
+
+		return new Tasks(
+			undefined,
+			result
+		)
+	}
+
+	add(tasks: Tasks) {
+		this.contents.push(...tasks.contents)
+	}
+
+	addEmoji(emoji: string) {
+		return new Tasks(
+			undefined,
+			this.contents = this.contents.map(content => {
+				return new Task(
+					content.content + emoji,
+					content.checked,
+					content.children);
+			}))
+	}
+
+	splitFirst(delimiter: string) {
+		return new Tasks(
+			undefined,
+			this.contents = this.contents
+				.map(content => {
+					return new Task(
+						content.content.replace('- [x]', '- [ ]').split(delimiter)[0],
+						content.checked,
+						content.children.map(child => {
+							return new Task(
+								child.content.replace('- [x]', '- [ ]').split(delimiter)[0],
+								child.checked,
+								child.children
+							)
+						}));
+				}))
+	}
+}
+
+export class Task {
+	content: string
+	checked: boolean
+	children: Task[] = []
+
+	constructor(content: string, checked: boolean, children?: Task[]) {
+		this.content = content
+		this.checked = checked
+		this.children = children == undefined ? [] : children
+	}
+
+	hasChildren() {
+		return this.children.length != 0;
+
+	}
+
+	convertToString() {
+		if (this.hasChildren()) {
+			return [
+				this.content,
+				...this.children.map(child => child.content)
+			].join('\n')
+		}
+		return this.content
+	}
+
+}
+
