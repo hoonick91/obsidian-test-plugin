@@ -143,13 +143,8 @@ export default class MyPlugin extends Plugin {
 
 	async createNote(dailyContents: DailyContents) {
 		const title = await this.getFormattedDate();
-		console.log(`new - ${title}`)
-
-		console.log(`createNote previous: \n${dailyContents.now()}`)
-		const contents = dailyContents.new()
-		console.log(`createNote new: \n${contents}`)
 		// Obsidian 파일 시스템을 통해 새 파일 생성
-		const file = await this.app.vault.create(`daily/${title}.md`, dailyContents.new());
+		const file = await this.app.vault.create(`daily/${title}.md`, dailyContents.create());
 		new Notice("새 노트가 생성되었습니다!");
 
 		// 생성한 노트 열기
